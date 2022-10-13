@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.HiveS3DataLake;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -38,11 +38,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
@@ -58,39 +58,41 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
-public abstract class BaseDeltaLakeMinioConnectorTest
+public abstract class BaseDeltaLakeS3ConnectorTest
         extends BaseConnectorTest
 {
     private static final String SCHEMA = "test_schema";
 
     protected String bucketName;
     protected String resourcePath;
-    protected HiveMinioDataLake hiveMinioDataLake;
+    protected HiveS3DataLake hiveS3DataLake;
+    private final Function<String, ? extends HiveS3DataLake> dataLakeConstructor;
 
-    public BaseDeltaLakeMinioConnectorTest(String bucketName, String resourcePath)
+    public BaseDeltaLakeS3ConnectorTest(String bucketName, String resourcePath, Function<String, ? extends HiveS3DataLake> dataLakeConstructor)
     {
         this.bucketName = requireNonNull(bucketName);
         this.resourcePath = requireNonNull(resourcePath);
+        this.dataLakeConstructor = dataLakeConstructor;
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
-        hiveMinioDataLake.start();
+        hiveS3DataLake = closeAfterClass(this.dataLakeConstructor.apply(bucketName));
+        hiveS3DataLake.start();
         QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 ImmutableMap.of(
                         "delta.enable-non-concurrent-writes", "true",
                         "delta.register-table-procedure.enabled", "true"),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop());
+                hiveS3DataLake.getS3Server().getAddress(),
+                hiveS3DataLake.getHiveHadoop());
         queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
         TpchTable.getTables().forEach(table -> {
             String tableName = table.getTableName();
-            hiveMinioDataLake.copyResources(resourcePath + tableName, SCHEMA + "/" + tableName);
+            hiveS3DataLake.copyResources(resourcePath + tableName, SCHEMA + "/" + tableName);
             queryRunner.execute(format("CALL system.register_table('%1$s', '%2$s', 's3://%3$s/%1$s/%2$s')",
                     SCHEMA,
                     tableName,
@@ -967,9 +969,9 @@ public abstract class BaseDeltaLakeMinioConnectorTest
 
     private List<String> getTableFiles(String tableName)
     {
-        return hiveMinioDataLake.listFiles(format("%s/%s", SCHEMA, tableName)).stream()
+        return hiveS3DataLake.listFiles(format("%s/%s", SCHEMA, tableName)).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
-                .collect(toImmutableList());
+                .toList();
     }
 
     private void assertThatShowCreateTable(String tableName, String expectedRegex)

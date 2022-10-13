@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.containers;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.containers.Minio;
+import io.trino.testing.containers.Localstack;
 import org.testcontainers.containers.Network;
 
 import java.util.Map;
@@ -22,36 +22,29 @@ import java.util.Map;
 import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 import static org.testcontainers.containers.Network.newNetwork;
 
-public class HiveMinioDataLake
-        extends HiveS3DataLake<HiveMinioDataLake, Minio>
+public class HiveLocalstackDataLake
+        extends HiveS3DataLake<HiveLocalstackDataLake, Localstack>
 {
-    /**
-     * In S3 this region is implicitly the default one. In Minio, however,
-     * if we set an empty region, it will accept any.
-     * So setting it by default to `us-east-1` simulates S3 better
-     */
-    public static final String MINIO_DEFAULT_REGION = Minio.REGION;
-
-    public HiveMinioDataLake(String bucketName)
+    public HiveLocalstackDataLake(String bucketName)
     {
         this(bucketName, HiveHadoop.DEFAULT_IMAGE);
     }
 
-    public HiveMinioDataLake(String bucketName, String hiveHadoopImage)
+    public HiveLocalstackDataLake(String bucketName, String hiveHadoopImage)
     {
-        this(bucketName, ImmutableMap.of("/etc/hadoop/conf/core-site.xml", getPathFromClassPathResource("hive_minio_datalake/hive-core-site.xml")), hiveHadoopImage);
+        this(bucketName, ImmutableMap.of("/etc/hadoop/conf/core-site.xml", getPathFromClassPathResource("hive_localstack_datalake/hive-core-site.xml")), hiveHadoopImage);
     }
 
-    public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
+    public HiveLocalstackDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
     {
         this(bucketName, hiveHadoopFilesToMount, hiveHadoopImage, newNetwork());
     }
 
-    private HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, Network network)
+    private HiveLocalstackDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, Network network)
     {
         super(
                 bucketName,
-                Minio.builder()
+                Localstack.builder()
                 .withNetwork(network)
                 .build(),
                 HiveHadoop.builder()
@@ -59,11 +52,5 @@ public class HiveMinioDataLake
                 .withNetwork(network)
                 .withFilesToMount(hiveHadoopFilesToMount)
                 .build());
-    }
-
-    @Deprecated
-    public Minio getMinio()
-    {
-        return getS3Server();
     }
 }

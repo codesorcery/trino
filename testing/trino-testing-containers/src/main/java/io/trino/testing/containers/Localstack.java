@@ -13,7 +13,6 @@
  */
 package io.trino.testing.containers;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
@@ -24,28 +23,23 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-public class Minio
+public class Localstack
         extends BaseTestContainer
         implements S3Server
 {
-    private static final Logger log = Logger.get(Minio.class);
+    private static final Logger log = Logger.get(Localstack.class);
 
-    public static final String DEFAULT_IMAGE = "minio/minio:RELEASE.2022-10-05T14-58-27Z";
-    public static final String DEFAULT_HOST_NAME = "minio";
+    public static final String DEFAULT_IMAGE = "localstack/localstack:1.4.0";
+    public static final String DEFAULT_HOST_NAME = "localstack";
 
-    public static final int MINIO_API_PORT = 4566;
-    public static final int MINIO_CONSOLE_PORT = 4567;
-    @Deprecated
-    public static final String MINIO_ACCESS_KEY = ACCESS_KEY;
-    @Deprecated
-    public static final String MINIO_SECRET_KEY = SECRET_KEY;
+    public static final int LOCALSTACK_API_PORT = 4566;
 
     public static Builder builder()
     {
         return new Builder();
     }
 
-    private Minio(
+    private Localstack(
             String image,
             String hostName,
             Set<Integer> exposePorts,
@@ -68,66 +62,40 @@ public class Minio
     protected void setupContainer()
     {
         super.setupContainer();
-        withRunCommand(
-                ImmutableList.of(
-                        "server",
-                        "--address", "0.0.0.0:" + MINIO_API_PORT,
-                        "--console-address", "0.0.0.0:" + MINIO_CONSOLE_PORT,
-                        "/data"));
     }
 
     @Override
     public void start()
     {
         super.start();
-        log.info("MinIO container started with address for api: http://%s and console: http://%s", getApiEndpoint(), getMinioConsoleEndpoint());
+        log.info("Localstack container started with address for api: http://%s", getApiEndpoint());
     }
 
     @Override
     public HostAndPort getApiEndpoint()
     {
-        return getMappedHostAndPortForExposedPort(MINIO_API_PORT);
-    }
-
-    @Deprecated
-    public HostAndPort getMinioApiEndpoint()
-    {
-        return getApiEndpoint();
-    }
-
-    @Deprecated
-    public String getMinioAddress()
-    {
-        return getAddress();
-    }
-
-    public HostAndPort getMinioConsoleEndpoint()
-    {
-        return getMappedHostAndPortForExposedPort(MINIO_CONSOLE_PORT);
+        return getMappedHostAndPortForExposedPort(LOCALSTACK_API_PORT);
     }
 
     public static class Builder
-            extends BaseTestContainer.Builder<Minio.Builder, Minio>
+            extends BaseTestContainer.Builder<Localstack.Builder, Localstack>
     {
         private Builder()
         {
             this.image = DEFAULT_IMAGE;
             this.hostName = DEFAULT_HOST_NAME;
-            this.exposePorts =
-                    ImmutableSet.of(
-                            MINIO_API_PORT,
-                            MINIO_CONSOLE_PORT);
+            this.exposePorts = ImmutableSet.of(LOCALSTACK_API_PORT);
             this.envVars = ImmutableMap.<String, String>builder()
-                    .put("MINIO_ACCESS_KEY", ACCESS_KEY)
-                    .put("MINIO_SECRET_KEY", SECRET_KEY)
-                    .put("MINIO_REGION", REGION)
+                    .put("AWS_ACCESS_KEY_ID", ACCESS_KEY)
+                    .put("AWS_SECRET_ACCESS_KEY", SECRET_KEY)
+                    .put("AWS_DEFAULT_REGION", REGION)
                     .buildOrThrow();
         }
 
         @Override
-        public Minio build()
+        public Localstack build()
         {
-            return new Minio(image, hostName, exposePorts, filesToMount, envVars, network, startupRetryLimit);
+            return new Localstack(image, hostName, exposePorts, filesToMount, envVars, network, startupRetryLimit);
         }
     }
 }

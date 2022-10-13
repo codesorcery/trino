@@ -217,7 +217,7 @@ public class S3NativeTransactionLogSynchronizer
             return Optional.empty();
         }
         catch (IOException e) {
-            if (e.getMessage().contains("The specified key does not exist.")) {
+            if (e.getMessage().contains("Error Code: NoSuchKey")) {
                 return Optional.empty();
             }
             throw e;

@@ -24,28 +24,23 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-public class Minio
+public class Ceph
         extends BaseTestContainer
         implements S3Server
 {
-    private static final Logger log = Logger.get(Minio.class);
+    private static final Logger log = Logger.get(Ceph.class);
 
-    public static final String DEFAULT_IMAGE = "minio/minio:RELEASE.2022-10-05T14-58-27Z";
-    public static final String DEFAULT_HOST_NAME = "minio";
+    private static final String DEFAULT_IMAGE = "quay.io/ceph/daemon:v7.0.1-stable-7.0-quincy-centos-stream8";
+    private static final String DEFAULT_HOST_NAME = "ceph";
 
-    public static final int MINIO_API_PORT = 4566;
-    public static final int MINIO_CONSOLE_PORT = 4567;
-    @Deprecated
-    public static final String MINIO_ACCESS_KEY = ACCESS_KEY;
-    @Deprecated
-    public static final String MINIO_SECRET_KEY = SECRET_KEY;
+    private static final int CEPH_RGW_PORT = 8080;
 
     public static Builder builder()
     {
         return new Builder();
     }
 
-    private Minio(
+    private Ceph(
             String image,
             String hostName,
             Set<Integer> exposePorts,
@@ -68,66 +63,43 @@ public class Minio
     protected void setupContainer()
     {
         super.setupContainer();
-        withRunCommand(
-                ImmutableList.of(
-                        "server",
-                        "--address", "0.0.0.0:" + MINIO_API_PORT,
-                        "--console-address", "0.0.0.0:" + MINIO_CONSOLE_PORT,
-                        "/data"));
+        withRunCommand(ImmutableList.of("demo"));
     }
 
     @Override
     public void start()
     {
         super.start();
-        log.info("MinIO container started with address for api: http://%s and console: http://%s", getApiEndpoint(), getMinioConsoleEndpoint());
+        log.info("Ceph container started with address for S3 api: http://%s", getApiEndpoint());
     }
 
-    @Override
     public HostAndPort getApiEndpoint()
     {
-        return getMappedHostAndPortForExposedPort(MINIO_API_PORT);
-    }
-
-    @Deprecated
-    public HostAndPort getMinioApiEndpoint()
-    {
-        return getApiEndpoint();
-    }
-
-    @Deprecated
-    public String getMinioAddress()
-    {
-        return getAddress();
-    }
-
-    public HostAndPort getMinioConsoleEndpoint()
-    {
-        return getMappedHostAndPortForExposedPort(MINIO_CONSOLE_PORT);
+        return getMappedHostAndPortForExposedPort(CEPH_RGW_PORT);
     }
 
     public static class Builder
-            extends BaseTestContainer.Builder<Minio.Builder, Minio>
+            extends BaseTestContainer.Builder<Ceph.Builder, Ceph>
     {
         private Builder()
         {
             this.image = DEFAULT_IMAGE;
             this.hostName = DEFAULT_HOST_NAME;
-            this.exposePorts =
-                    ImmutableSet.of(
-                            MINIO_API_PORT,
-                            MINIO_CONSOLE_PORT);
+            this.exposePorts = ImmutableSet.of(CEPH_RGW_PORT);
             this.envVars = ImmutableMap.<String, String>builder()
-                    .put("MINIO_ACCESS_KEY", ACCESS_KEY)
-                    .put("MINIO_SECRET_KEY", SECRET_KEY)
-                    .put("MINIO_REGION", REGION)
+                    .put("CEPH_DAEMON", "demo")
+                    .put("CEPH_DEMO_UID", "ceph")
+                    .put("CEPH_DEMO_ACCESS_KEY", ACCESS_KEY)
+                    .put("CEPH_DEMO_SECRET_KEY", SECRET_KEY)
+                    .put("NETWORK_AUTO_DETECT", "4")
+                    .put("RGW_NAME", DEFAULT_HOST_NAME)
                     .buildOrThrow();
         }
 
         @Override
-        public Minio build()
+        public Ceph build()
         {
-            return new Minio(image, hostName, exposePorts, filesToMount, envVars, network, startupRetryLimit);
+            return new Ceph(image, hostName, exposePorts, filesToMount, envVars, network, startupRetryLimit);
         }
     }
 }

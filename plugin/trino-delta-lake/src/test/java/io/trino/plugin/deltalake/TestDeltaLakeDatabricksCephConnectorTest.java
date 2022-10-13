@@ -13,11 +13,13 @@
  */
 package io.trino.plugin.deltalake;
 
-public class TestDeltaLakeOssDeltaLakeConnectorTest
-        extends BaseDeltaLakeMinioConnectorTest
+import io.trino.plugin.hive.containers.HiveCephDataLake;
+
+public class TestDeltaLakeDatabricksCephConnectorTest
+        extends BaseDeltaLakeS3ConnectorTest
 {
-    public TestDeltaLakeOssDeltaLakeConnectorTest()
+    public TestDeltaLakeDatabricksCephConnectorTest()
     {
-        super("ossdeltalake-test-queries", "io/trino/plugin/deltalake/testing/resources/ossdeltalake/");
+        super("databricks-test-queries", "io/trino/plugin/deltalake/testing/resources/databricks/", HiveCephDataLake::new);
     }
 }
